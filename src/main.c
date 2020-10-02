@@ -50,7 +50,6 @@ char **get_list() {
 
 int main() {
     char **cmd = get_list();
-    char ch;
     int fd, check;
     int i = 0;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
