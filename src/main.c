@@ -90,7 +90,7 @@ int hasPipe(char **cmd) {
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], "|") == 0) && (cmd[i + 1] != NULL)) {
             cmd[i] = NULL;
-            break;
+            return i++;
         }
         i++;
     }
@@ -120,7 +120,7 @@ void Pipe(int x, int *fd, char **cmd)
 int main() {
     char **cmd = get_list();
     int fd[2], check, flag;
-    pid_t pid;
+    int pid;
     int i = 0;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
         if (flag = hasPipe(cmd)){
