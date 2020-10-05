@@ -48,25 +48,35 @@ char **get_list() {
     return array;
 }
 
-int Redirect(char **cmd, int *index) {
+
+
+
+
+int Redirect(char **cmd) {
     int check = 0;
     int i = 0;
+    int input, output;
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], ">") == 0) && (cmd[i + 1] != NULL)) {
-            fd = open(cmd[i + 1], O_WRONLY | O_CREAT | O_TRUNC,
+            input = open(cmd[i + 1], O_WRONLY | O_CREAT | O_TRUNC,
                  S_IRUSR | S_IWUSR);
-            check = 1;
+            dup2(input, 1);
+            close(input);
+            //free(cmd[i + 1]);
+            cmd[i] = NULL;
             break;
         }
         if ((strcmp(cmd[i], "<") == 0) && (cmd[i + 1] != NULL)) {
-            fd = open(cmd[i + 1], O_RDONLY);
-            check = 2;
+            output = open(cmd[i + 1], O_RDONLY);
+            dup2(output, 0);
+            close(output);
+            //free(cmd[i + 1]);
+            cmd[i] = NULL;
             break;
         }
         i++;
     }
-    *index = i;
-    return check;
+    return i;
 }
 
 void OutFunction(char **cmd) {
@@ -75,15 +85,37 @@ void OutFunction(char **cmd) {
     }
 }
 
-int hasPipe() {
+int hasPipe(char **cmd) {
+    int i = 0;
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], "|") == 0) && (cmd[i + 1] != NULL)) {
             cmd[i] = NULL;
             break;
         }
         i++;
-
+    }
+    return 0;
 }
+
+void Pipe(int x)
+{
+	int pid2;
+	if (x == 0)
+        return;
+	if ((pid2 = fork()) == 0) {
+		//sub process
+		close(fd[1]);
+		dup2(fd[0], 0);
+		OutFunction(x);
+	}
+	else {
+		//parent process
+		close(fd[1]);
+		waitpid(pid2, NULL, 0);
+	}
+}
+
+
 
 int main() {
     char **cmd = get_list();
