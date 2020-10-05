@@ -97,7 +97,7 @@ int hasPipe(char **cmd) {
     return 0;
 }
 
-void Pipe(int x, int *fd)
+void Pipe(int x, int *fd, char **cmd)
 {
 	int pid2;
 	if (x == 0)
@@ -106,7 +106,7 @@ void Pipe(int x, int *fd)
 		//sub process
 		close(fd[1]);
 		dup2(fd[0], 0);
-		OutFunction(x);
+		OutFunction(cmd);
 	}
 	else {
 		//parent process
@@ -126,7 +126,7 @@ int main() {
         if (flag = hasPipe(cmd)){
             pipe(fd);
         }
-        if ((pid_t = fork()) == 0) {
+        if ((pid = fork()) == 0) {
             if (flag) {
                 close(fd[0]);
 				dup2(fd[1], 1);
@@ -135,51 +135,14 @@ int main() {
             OutFunction(cmd);
         }
         else if (pid > 0) {
-            Pipe(flag);
+            Pipe(flag, fd, cmd);
             waitpid(pid, NULL, 0);
         }
         else {
 			printf("fork failed.");
 		}
-
-        // check = 0;
-        // if (fork() > 0) {
-        //     wait(NULL);
-        // } else {
-        //     while (cmd[i] != NULL) {
-        //         if ((strcmp(cmd[i], ">") == 0) && (cmd[i + 1] != NULL)) {
-        //             fd = open(cmd[i + 1], O_WRONLY | O_CREAT | O_TRUNC,
-        //                  S_IRUSR | S_IWUSR);
-        //             check = 1;
-        //             break;
-        //         }
-        //         if ((strcmp(cmd[i], "<") == 0) && (cmd[i + 1] != NULL)) {
-        //             fd = open(cmd[i + 1], O_RDONLY);
-        //             check = 2;
-        //             break;
-        //         }
-        //         i++;
-        //     }
-        //     if (check == 1) {
-        //         dup2(fd, 1);
-        //         free(cmd[i + 1]);
-        //         cmd[i] = NULL;
-        //     } else if (check == 2) {
-        //         dup2(fd, 0);
-        //         free(cmd[i + 1]);
-        //         cmd[i] = NULL;
-        //     }
-        //
-        //     if (execvp(cmd[0], cmd) < 0) {
-        //         perror("exec failed");
-        //         return 1;
-        //     }
-        // }
         freelist(cmd);
         cmd = get_list();
-        if (!check) {
-            close(fd);
-        }
     }
     freelist(cmd);
     return 0;
