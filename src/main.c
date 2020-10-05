@@ -70,7 +70,19 @@ int Redirect(char **cmd, int *index) {
 }
 
 void OutFunction(char **cmd) {
-    
+    if (execvp(cmd[0], cmd) < 0) {
+        perror("exec failed");
+    }
+}
+
+int hasPipe() {
+    while (cmd[i] != NULL) {
+        if ((strcmp(cmd[i], "|") == 0) && (cmd[i + 1] != NULL)) {
+            cmd[i] = NULL;
+            break;
+        }
+        i++;
+
 }
 
 int main() {
