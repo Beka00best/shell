@@ -48,9 +48,11 @@ char **get_list() {
     return array;
 }
 
+
+
 int main() {
     char **cmd = get_list();
-    int fd, check;
+    int fd[2], check;
     int i = 0;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
         check = 0;
