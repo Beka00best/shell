@@ -48,7 +48,30 @@ char **get_list() {
     return array;
 }
 
+int Redirect(char **cmd, int *index) {
+    int check = 0;
+    int i = 0;
+    while (cmd[i] != NULL) {
+        if ((strcmp(cmd[i], ">") == 0) && (cmd[i + 1] != NULL)) {
+            fd = open(cmd[i + 1], O_WRONLY | O_CREAT | O_TRUNC,
+                 S_IRUSR | S_IWUSR);
+            check = 1;
+            break;
+        }
+        if ((strcmp(cmd[i], "<") == 0) && (cmd[i + 1] != NULL)) {
+            fd = open(cmd[i + 1], O_RDONLY);
+            check = 2;
+            break;
+        }
+        i++;
+    }
+    *index = i;
+    return check;
+}
 
+void OutFunction(char **cmd) {
+    
+}
 
 int main() {
     char **cmd = get_list();
