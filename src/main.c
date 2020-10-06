@@ -80,7 +80,7 @@ int Redirect(char **cmd) {
 }
 
 void OutFunction(char **cmd, int x) {
-    if (execvp(cmd[x], cmd) < 0) {
+    if (execvp(cmd[x], cmd + x) < 0) {
         perror("exec failed");
         return;
     }
