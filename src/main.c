@@ -79,18 +79,19 @@ int Redirect(char **cmd) {
     return i;
 }
 
-void OutFunction(char **cmd) {
-    if (execvp(cmd[0], cmd) < 0) {
+void OutFunction(char **cmd, int x) {
+    if (execvp(cmd[x], cmd) < 0) {
         perror("exec failed");
+        return;
     }
 }
 
 int hasPipe(char **cmd) {
     int i = 0;
     while (cmd[i] != NULL) {
-        if ((strcmp(cmd[i], "|") == 0) && (cmd[i + 1] != NULL)) {
+        if ((strcmp(cmd[i], "|") == 0)) {
             cmd[i] = NULL;
-            return i++;
+            return i;
         }
         i++;
     }
@@ -104,13 +105,15 @@ void Pipe(int x, int *fd, char **cmd)
         return;
 	if ((pid2 = fork()) == 0) {
 		//sub process
-		close(fd[1]);
-		dup2(fd[0], 0);
-		OutFunction(cmd);
+        dup2(fd[0], 0);
+        //close(fd[0]);
+        close(fd[1]);
+		OutFunction(cmd, x + 1);
 	}
 	else {
 		//parent process
-		close(fd[1]);
+        close(fd[1]);
+        //close(fd[0]);
 		waitpid(pid2, NULL, 0);
 	}
 }
@@ -120,7 +123,7 @@ void Pipe(int x, int *fd, char **cmd)
 int main() {
     char **cmd = get_list();
     int fd[2], check, flag;
-    int pid;
+    pid_t pid;
     int i = 0;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
         if (flag = hasPipe(cmd)){
@@ -129,10 +132,12 @@ int main() {
         if ((pid = fork()) == 0) {
             if (flag) {
                 close(fd[0]);
-				dup2(fd[1], 1);
+                dup2(fd[1], 1);
+                //printf("S1\n");
+                close(fd[1]);
             }
             Redirect(cmd);
-            OutFunction(cmd);
+            OutFunction(cmd, 0);
         }
         else if (pid > 0) {
             Pipe(flag, fd, cmd);
