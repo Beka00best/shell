@@ -48,30 +48,26 @@ char **get_list() {
     return array;
 }
 
-
-
-
+void dup2Action(char **cmd, int file, int x, int index) {
+    dup2(file, x);
+    close(file);
+    cmd[index] = NULL;
+    return;
+}
 
 int Redirect(char **cmd) {
-    int check = 0;
     int i = 0;
     int input, output;
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], ">") == 0) && (cmd[i + 1] != NULL)) {
             input = open(cmd[i + 1], O_WRONLY | O_CREAT | O_TRUNC,
                  S_IRUSR | S_IWUSR);
-            dup2(input, 1);
-            close(input);
-            //free(cmd[i + 1]);
-            cmd[i] = NULL;
+            dup2Action(cmd, input, 1, i);
             break;
         }
         if ((strcmp(cmd[i], "<") == 0) && (cmd[i + 1] != NULL)) {
             output = open(cmd[i + 1], O_RDONLY);
-            dup2(output, 0);
-            close(output);
-            //free(cmd[i + 1]);
-            cmd[i] = NULL;
+            dup2Action(cmd, output, 0, i);
             break;
         }
         i++;
@@ -98,42 +94,37 @@ int hasPipe(char **cmd) {
     return 0;
 }
 
-void Pipe(int x, int *fd, char **cmd)
-{
+void Pipe(int x, int *fd, char **cmd) {
 	int pid2;
 	if (x == 0)
         return;
 	if ((pid2 = fork()) == 0) {
 		//sub process
         dup2(fd[0], 0);
-        //close(fd[0]);
+        close(fd[0]);
         close(fd[1]);
 		OutFunction(cmd, x + 1);
 	}
 	else {
 		//parent process
         close(fd[1]);
-        //close(fd[0]);
+        close(fd[0]);
 		waitpid(pid2, NULL, 0);
 	}
 }
 
-
-
 int main() {
     char **cmd = get_list();
-    int fd[2], check, flag;
+    int fd[2], flag;
     pid_t pid;
-    int i = 0;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
-        if (flag = hasPipe(cmd)){
+        if ((flag = hasPipe(cmd))){
             pipe(fd);
         }
         if ((pid = fork()) == 0) {
             if (flag) {
                 close(fd[0]);
                 dup2(fd[1], 1);
-                //printf("S1\n");
                 close(fd[1]);
             }
             Redirect(cmd);
