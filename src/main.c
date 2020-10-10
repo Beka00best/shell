@@ -51,12 +51,13 @@ char **get_list() {
 void dup2Action(char **cmd, int file, int x, int index) {
     dup2(file, x);
     close(file);
+    free(cmd[index]);
     cmd[index] = NULL;
     return;
 }
 
-int Redirect(char **cmd) {
-    int i = 0;
+int Redirect(char **cmd, int x) {
+    int i = x;
     int input, output;
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], ">") == 0) && (cmd[i + 1] != NULL)) {
@@ -103,13 +104,15 @@ void Pipe(int x, int *fd, char **cmd) {
         dup2(fd[0], 0);
         close(fd[0]);
         close(fd[1]);
+        Redirect(cmd, x + 1);
 		OutFunction(cmd, x + 1);
 	}
 	else {
 		//parent process
+        //wait(NULL);
         close(fd[1]);
         close(fd[0]);
-		waitpid(pid2, NULL, 0);
+        waitpid(pid2, NULL, 0);
 	}
 }
 
@@ -123,20 +126,21 @@ int main() {
         }
         if ((pid = fork()) == 0) {
             if (flag) {
-                close(fd[0]);
                 dup2(fd[1], 1);
                 close(fd[1]);
+                close(fd[0]);
             }
-            Redirect(cmd);
+            Redirect(cmd, 0);
             OutFunction(cmd, 0);
-        }
-        else if (pid > 0) {
+        } else if (pid > 0) {
             Pipe(flag, fd, cmd);
+            // wait(NULL);
             waitpid(pid, NULL, 0);
-        }
-        else {
+        } else {
 			printf("fork failed.");
 		}
+        //wait(NULL);
+        //wait(NULL);
         freelist(cmd);
         cmd = get_list();
     }
