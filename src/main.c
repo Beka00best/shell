@@ -8,13 +8,16 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-void freelist(char **arr) {
+void freelist(char **arr, int *a, int count, int (*fd)[2]) {
     int i = 0;
-    while (arr[i]!= NULL) {
-        free(arr[i]);
-        i++;
+    free(fd);
+    for (int j = 0; j < count + 1; j++) {
+        i = a[j];
+        while (arr[i]!= NULL) {
+            free(arr[i]);
+            i++;
+        }
     }
-    free(arr[i]);
     free(arr);
 }
 
@@ -53,6 +56,8 @@ void dup2Action(char **cmd, int file, int x, int index) {
     close(file);
     free(cmd[index]);
     cmd[index] = NULL;
+    free(cmd[index + 1]);
+    cmd[index + 1] = NULL;
     return;
 }
 
@@ -76,74 +81,93 @@ int Redirect(char **cmd, int x) {
     return i;
 }
 
-void OutFunction(char **cmd, int x) {
+int OutFunction(char **cmd, int x) {
     if (execvp(cmd[x], cmd + x) < 0) {
         perror("exec failed");
-        return;
-    }
-}
-
-int hasPipe(char **cmd) {
-    int i = 0;
-    while (cmd[i] != NULL) {
-        if ((strcmp(cmd[i], "|") == 0)) {
-            cmd[i] = NULL;
-            return i;
-        }
-        i++;
+        return 1;
     }
     return 0;
 }
 
-void Pipe(int x, int *fd, char **cmd) {
-	int pid2;
-	if (x == 0)
-        return;
-	if ((pid2 = fork()) == 0) {
-		//sub process
-        dup2(fd[0], 0);
-        close(fd[0]);
-        close(fd[1]);
-        Redirect(cmd, x + 1);
-		OutFunction(cmd, x + 1);
-	}
-	else {
-		//parent process
-        //wait(NULL);
-        close(fd[1]);
-        close(fd[0]);
-        waitpid(pid2, NULL, 0);
-	}
+int hasPipe(char **cmd, int **a) {
+    int i = 0;
+    int count = 0;
+    char k;
+    while (cmd[i] != NULL) {
+        if ((strcmp(cmd[i], "|") == 0)) {
+            free(cmd[i]);
+            cmd[i] = NULL;
+            count++;
+            *a = realloc(*a, (count + 1) * sizeof(int));
+            (*a)[count] = i + 1;
+        }
+        i++;
+    }
+    return count;
 }
+
+void Pipe(int x, int (*fd)[2], char **cmd, int *a) {
+	int pid2;
+	if (x == 0) {
+        return;
+    }
+    for(int i = 1; i <= x; i++) {
+        //fd = realloc(fd, (2 * sizeof(int *)) * i);
+        if ((pid2 = fork()) == 0) {
+            // sub process
+            dup2(fd[i - 1][0], 0);
+            close(fd[i - 1][0]);
+            close(fd[i - 1][1]);
+            if (i != x) {
+                dup2(fd[i][1], 1);
+            }
+            close(fd[i][1]);
+            close(fd[i][0]);
+            Redirect(cmd, a[i]);
+            OutFunction(cmd, a[i]);
+        } else {
+    	    // parent process
+            close(fd[i - 1][1]);
+            close(fd[i - 1][0]);
+        }
+    }
+    close(fd[x][1]);
+    close(fd[x][0]);
+    for (int i = 0; i <= x; i++) {
+        wait(NULL);
+    }
+}
+
 
 int main() {
     char **cmd = get_list();
-    int fd[2], flag;
+    int *a = NULL;
+    a = malloc(1 * sizeof(int));
+    a[0] = 0;
+    //int fd[10][2];
+    int (*fd)[2] = malloc(100 * sizeof(int[2]));
+    int flag;
     pid_t pid;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
-        if ((flag = hasPipe(cmd))){
-            pipe(fd);
+        if ((flag = hasPipe(cmd, &a))){
+            for(int i = 0; i <= flag; i++) {
+                pipe(fd[i]);
+            }
         }
         if ((pid = fork()) == 0) {
             if (flag) {
-                dup2(fd[1], 1);
-                close(fd[1]);
-                close(fd[0]);
+                dup2(fd[0][1], 1);
             }
-            Redirect(cmd, 0);
-            OutFunction(cmd, 0);
+            close(fd[0][1]);
+            close(fd[0][0]);
+            Redirect(cmd, a[0]);
+            OutFunction(cmd, a[0]);
         } else if (pid > 0) {
-            Pipe(flag, fd, cmd);
-            // wait(NULL);
-            waitpid(pid, NULL, 0);
-        } else {
-			printf("fork failed.");
-		}
-        //wait(NULL);
-        //wait(NULL);
-        freelist(cmd);
+            Pipe(flag, fd, cmd, a);
+        }
+        freelist(cmd, a, flag, fd);
         cmd = get_list();
     }
-    freelist(cmd);
+    freelist(cmd, a, flag, fd);
     return 0;
 }
