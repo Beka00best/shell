@@ -8,17 +8,17 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-void freelist(char **arr, int *a, int count, int (*fd)[2]) {
+void freelist(char **arr, int *positionCommands, int count) {
     int i = 0;
-    free(fd);
     for (int j = 0; j < count + 1; j++) {
-        i = a[j];
+        i = positionCommands[j];
         while (arr[i]!= NULL) {
             free(arr[i]);
             i++;
         }
     }
     free(arr);
+    free(positionCommands);
 }
 
 char *get_word(char *end) {
@@ -84,35 +84,30 @@ int Redirect(char **cmd, int x) {
 int OutFunction(char **cmd, int x) {
     if (execvp(cmd[x], cmd + x) < 0) {
         perror("exec failed");
-        return 1;
+        exit(1);
     }
     return 0;
 }
 
-int hasPipe(char **cmd, int **a) {
+int hasPipe(char **cmd, int **positionCommands) {
     int i = 0;
     int count = 0;
-    char k;
     while (cmd[i] != NULL) {
         if ((strcmp(cmd[i], "|") == 0)) {
             free(cmd[i]);
             cmd[i] = NULL;
             count++;
-            *a = realloc(*a, (count + 1) * sizeof(int));
-            (*a)[count] = i + 1;
+            *positionCommands = realloc(*positionCommands, (count + 1) * sizeof(int));
+            (*positionCommands)[count] = i + 1;
         }
         i++;
     }
     return count;
 }
 
-void Pipe(int x, int (*fd)[2], char **cmd, int *a) {
+void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands) {
 	int pid2;
-	if (x == 0) {
-        return;
-    }
     for(int i = 1; i <= x; i++) {
-        //fd = realloc(fd, (2 * sizeof(int *)) * i);
         if ((pid2 = fork()) == 0) {
             // sub process
             dup2(fd[i - 1][0], 0);
@@ -123,36 +118,29 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *a) {
             }
             close(fd[i][1]);
             close(fd[i][0]);
-            Redirect(cmd, a[i]);
-            OutFunction(cmd, a[i]);
+            Redirect(cmd, positionCommands[i]);
+            OutFunction(cmd, positionCommands[i]);
         } else {
     	    // parent process
             close(fd[i - 1][1]);
             close(fd[i - 1][0]);
         }
     }
-    close(fd[x][1]);
-    close(fd[x][0]);
-    for (int i = 0; i <= x; i++) {
-        wait(NULL);
-    }
 }
 
 
 int main() {
     char **cmd = get_list();
-    int *a = NULL;
-    a = malloc(1 * sizeof(int));
-    a[0] = 0;
-    //int fd[10][2];
-    int (*fd)[2] = malloc(100 * sizeof(int[2]));
-    int flag;
+    int *positionCommands;
+    positionCommands = malloc(1 * sizeof(int));
+    positionCommands[0] = 0;
+    int flag = 0;
     pid_t pid;
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
-        if ((flag = hasPipe(cmd, &a))){
-            for(int i = 0; i <= flag; i++) {
-                pipe(fd[i]);
-            }
+        flag = hasPipe(cmd, &positionCommands);
+        int (*fd)[2] = malloc((flag + 1) * sizeof(int[2]));
+        for(int i = 0; i <= flag; i++) {
+            pipe(fd[i]);
         }
         if ((pid = fork()) == 0) {
             if (flag) {
@@ -163,11 +151,19 @@ int main() {
             Redirect(cmd, a[0]);
             OutFunction(cmd, a[0]);
         } else if (pid > 0) {
-            Pipe(flag, fd, cmd, a);
+            Pipe(flag, fd, cmd, positionCommands);
         }
-        freelist(cmd, a, flag, fd);
+        close(fd[flag][1]);
+        close(fd[flag][0]);
+        for (int i = 0; i <= flag; i++) {
+            wait(NULL);
+        }
+        free(fd);
+        freelist(cmd, positionCommands, flag);
+        positionCommands = malloc(1 * sizeof(int));
+        positionCommands[0] = 0;
         cmd = get_list();
     }
-    freelist(cmd, a, flag, fd);
+    freelist(cmd, positionCommands, 0);
     return 0;
 }
