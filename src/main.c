@@ -94,6 +94,7 @@ int Checking(char **cmd, int x, int bg) {
             } else {
                 chdir(cmd[i + 1]);
             }
+            break;
             // char *newCWD[100];
 			// getcwd(newCWD, sizeof(newCWD));
 			// setenv("PWD", newCWD, 1);
@@ -103,8 +104,8 @@ int Checking(char **cmd, int x, int bg) {
     return bg;
 }
 
-int OutFunction(char **cmd, int x) {
-    if (execvp(cmd[x], cmd + x) < 0) {
+int OutFunction(char **cmd, int position) {
+    if (execvp(cmd[position], cmd + position) < 0) {
         perror("exec failed");
         exit(1);
     }
@@ -160,9 +161,9 @@ void showPWD() {
 }
 
 void handler(int signo) {
-	puts("\nRecieved SIGINT");
-	if (pid != 1) {
-		kill(pid, SIGINT);
+    puts("\nRecieved SIGINT");
+    if (pid != 1) {
+        kill(pid, SIGINT);
 	}
 }
 
@@ -173,7 +174,7 @@ int main() {
     positionCommands = malloc(1 * sizeof(int));
     positionCommands[0] = 0;
     int flag = 0, bg;
-
+    int wstatus;
     signal(SIGINT, handler);
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
         bg = 0;
@@ -185,26 +186,26 @@ int main() {
         if ((pid = fork()) == 0) {
             if (flag) {
                 dup2(fd[0][1], 1);
-                close(fd[0][1]);
-                close(fd[0][0]);
             }
+            close(fd[0][1]);
+            close(fd[0][0]);
             bg = Checking(cmd, positionCommands[0], bg);
             if (bg == 0) {
                 OutFunction(cmd, positionCommands[0]);
             }
         } else if (pid > 0) {
             Pipe(flag, fd, cmd, positionCommands, bg);
-            // if (bg == 0) {
-            //     wait(NULL);
-            // }
+            if (bg == 2) {
+                waitpid(pid, &wstatus, 0);
+            }
         }
         close(fd[flag][1]);
         close(fd[flag][0]);
-        // if (bg == 0) {
-        for (int i = 0; i <= flag; i++) {
-            wait(NULL);
+        if (bg == 0) {
+            for (int i = 0; i <= flag; i++) {
+                wait(NULL);
+            }
         }
-        // }
         free(fd);
         freelist(cmd, positionCommands, flag);
         positionCommands = malloc(1 * sizeof(int));
