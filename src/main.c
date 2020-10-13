@@ -7,6 +7,10 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+
+#define ANSI_COLOR_BLUE    "\x1b[1;34m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 pid_t pid = 1;
 
 void freelist(char **arr, int *positionCommands, int count) {
@@ -62,7 +66,7 @@ void dup2Action(char **cmd, int file, int x, int index) {
     return;
 }
 
-int Redirect(char **cmd, int x, int bg) {
+int Checking(char **cmd, int x, int bg) {
     int i = x;
     int input, output;
     while (cmd[i] != NULL) {
@@ -78,14 +82,25 @@ int Redirect(char **cmd, int x, int bg) {
             break;
         }
         if ((strcmp(cmd[i], "&") == 0)) {
-            bg = 1;
+            bg = 2;
             free(cmd[i]);
             cmd[i] = NULL;
             break;
         }
+        if ((strcmp(cmd[i], "cd") == 0)) {
+            bg = 1;
+            if ((cmd[i + 1] == NULL) || (strcmp(cmd[i + 1], "~") == 0)) {
+                chdir(getenv("HOME"));
+            } else {
+                chdir(cmd[i + 1]);
+            }
+            // char *newCWD[100];
+			// getcwd(newCWD, sizeof(newCWD));
+			// setenv("PWD", newCWD, 1);
+        }
         i++;
     }
-    return i;
+    return bg;
 }
 
 int OutFunction(char **cmd, int x) {
@@ -125,13 +140,22 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int bg) {
             }
             close(fd[i][1]);
             close(fd[i][0]);
-            Redirect(cmd, positionCommands[i], bg);
+            Checking(cmd, positionCommands[i], bg);
             OutFunction(cmd, positionCommands[i]);
         } else {
     	    // parent process
             close(fd[i - 1][1]);
             close(fd[i - 1][0]);
         }
+    }
+}
+
+void showPWD() {
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "$ ", cwd);
+    } else {
+        perror("getcwd failed\n");
     }
 }
 
@@ -143,14 +167,16 @@ void handler(int signo) {
 }
 
 int main() {
+    showPWD();
     char **cmd = get_list();
     int *positionCommands;
     positionCommands = malloc(1 * sizeof(int));
     positionCommands[0] = 0;
-    int flag = 0, bg = 0;
-    
+    int flag = 0, bg;
+
     signal(SIGINT, handler);
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
+        bg = 0;
         flag = hasPipe(cmd, &positionCommands);
         int (*fd)[2] = malloc((flag + 1) * sizeof(int[2]));
         for(int i = 0; i <= flag; i++) {
@@ -159,26 +185,31 @@ int main() {
         if ((pid = fork()) == 0) {
             if (flag) {
                 dup2(fd[0][1], 1);
+                close(fd[0][1]);
+                close(fd[0][0]);
             }
-            close(fd[0][1]);
-            close(fd[0][0]);
-            Redirect(cmd, positionCommands[0], bg);
-            OutFunction(cmd, positionCommands[0]);
+            bg = Checking(cmd, positionCommands[0], bg);
+            if (bg == 0) {
+                OutFunction(cmd, positionCommands[0]);
+            }
         } else if (pid > 0) {
             Pipe(flag, fd, cmd, positionCommands, bg);
-            if (bg == 0) {
-                wait(NULL);
-            }
+            // if (bg == 0) {
+            //     wait(NULL);
+            // }
         }
         close(fd[flag][1]);
         close(fd[flag][0]);
+        // if (bg == 0) {
         for (int i = 0; i <= flag; i++) {
             wait(NULL);
         }
+        // }
         free(fd);
         freelist(cmd, positionCommands, flag);
         positionCommands = malloc(1 * sizeof(int));
         positionCommands[0] = 0;
+        showPWD();
         cmd = get_list();
     }
     freelist(cmd, positionCommands, 0);
