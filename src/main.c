@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+pid_t pid = 1;
 
 void freelist(char **arr, int *positionCommands, int count) {
     int i = 0;
@@ -61,7 +62,7 @@ void dup2Action(char **cmd, int file, int x, int index) {
     return;
 }
 
-int Redirect(char **cmd, int x) {
+int Redirect(char **cmd, int x, int bg) {
     int i = x;
     int input, output;
     while (cmd[i] != NULL) {
@@ -74,6 +75,12 @@ int Redirect(char **cmd, int x) {
         if ((strcmp(cmd[i], "<") == 0) && (cmd[i + 1] != NULL)) {
             output = open(cmd[i + 1], O_RDONLY);
             dup2Action(cmd, output, 0, i);
+            break;
+        }
+        if ((strcmp(cmd[i], "&") == 0)) {
+            bg = 1;
+            free(cmd[i]);
+            cmd[i] = NULL;
             break;
         }
         i++;
@@ -105,7 +112,7 @@ int hasPipe(char **cmd, int **positionCommands) {
     return count;
 }
 
-void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands) {
+void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int bg) {
 	int pid2;
     for(int i = 1; i <= x; i++) {
         if ((pid2 = fork()) == 0) {
@@ -118,7 +125,7 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands) {
             }
             close(fd[i][1]);
             close(fd[i][0]);
-            Redirect(cmd, positionCommands[i]);
+            Redirect(cmd, positionCommands[i], bg);
             OutFunction(cmd, positionCommands[i]);
         } else {
     	    // parent process
@@ -128,14 +135,21 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands) {
     }
 }
 
+void handler(int signo) {
+	puts("\nRecieved SIGINT");
+	if (pid != 1) {
+		kill(pid, SIGINT);
+	}
+}
 
 int main() {
     char **cmd = get_list();
     int *positionCommands;
     positionCommands = malloc(1 * sizeof(int));
     positionCommands[0] = 0;
-    int flag = 0;
-    pid_t pid;
+    int flag = 0, bg = 0;
+    
+    signal(SIGINT, handler);
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
         flag = hasPipe(cmd, &positionCommands);
         int (*fd)[2] = malloc((flag + 1) * sizeof(int[2]));
@@ -148,10 +162,13 @@ int main() {
             }
             close(fd[0][1]);
             close(fd[0][0]);
-            Redirect(cmd, a[0]);
-            OutFunction(cmd, a[0]);
+            Redirect(cmd, positionCommands[0], bg);
+            OutFunction(cmd, positionCommands[0]);
         } else if (pid > 0) {
-            Pipe(flag, fd, cmd, positionCommands);
+            Pipe(flag, fd, cmd, positionCommands, bg);
+            if (bg == 0) {
+                wait(NULL);
+            }
         }
         close(fd[flag][1]);
         close(fd[flag][0]);
