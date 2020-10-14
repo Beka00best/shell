@@ -37,7 +37,7 @@ $ make main
 ***
 ![simplescreenrecorder-2020-10-14_08 43 58](https://user-images.githubusercontent.com/60710125/95937577-ec746180-0df9-11eb-8355-28c3301ef817.gif)
 ***
-При нажатии для выхода из программы Ctrl + C программа не выйдет и выведет на экран:
+При нажатии Ctrl + C для выхода из программы программа не выйдет и выведет на экран:
 ```sh
 Recieved SIGINT
 ```
