@@ -49,6 +49,7 @@ char **get_list() {
     do {
         array = realloc(array, (index + 1) * sizeof(char*));
         array[index] = get_word(&end);
+        //
         index++;
     } while (end != '\n');
     array = realloc(array, (index + 1) * sizeof(char*));
@@ -66,7 +67,19 @@ void dup2Action(char **cmd, int file, int x, int index) {
     return;
 }
 
-int Checking(char **cmd, int x, int bg) {
+int bgSearch(char **cmd, char *word) {
+    int pos = 0;
+    for (pos = 0; cmd[pos] != NULL; pos++) {
+        if (strcmp(word, cmd[pos]) == 0) {
+            free(cmd[pos]);
+            cmd[pos] = NULL;
+            return pos;
+        }
+    }
+    return 0;
+}
+
+int Checking(char **cmd, int x, int flagCD) {
     int i = x;
     int input, output;
     while (cmd[i] != NULL) {
@@ -81,14 +94,8 @@ int Checking(char **cmd, int x, int bg) {
             dup2Action(cmd, output, 0, i);
             break;
         }
-        if ((strcmp(cmd[i], "&") == 0)) {
-            bg = 2;
-            free(cmd[i]);
-            cmd[i] = NULL;
-            break;
-        }
         if ((strcmp(cmd[i], "cd") == 0)) {
-            bg = 1;
+            flagCD = 2;
             if ((cmd[i + 1] == NULL) || (strcmp(cmd[i + 1], "~") == 0)) {
                 chdir(getenv("HOME"));
             } else {
@@ -101,7 +108,7 @@ int Checking(char **cmd, int x, int bg) {
         }
         i++;
     }
-    return bg;
+    return flagCD;
 }
 
 int OutFunction(char **cmd, int position) {
@@ -128,7 +135,7 @@ int hasPipe(char **cmd, int **positionCommands) {
     return count;
 }
 
-void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int bg) {
+void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int flagCD) {
 	int pid2;
     for(int i = 1; i <= x; i++) {
         if ((pid2 = fork()) == 0) {
@@ -139,9 +146,11 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int bg) {
             if (i != x) {
                 dup2(fd[i][1], 1);
             }
-            close(fd[i][1]);
-            close(fd[i][0]);
-            Checking(cmd, positionCommands[i], bg);
+            for (int k = 0; k <= x; k++) {
+                close(fd[k][1]);
+                close(fd[k][0]);
+            }
+            Checking(cmd, positionCommands[i], flagCD);
             OutFunction(cmd, positionCommands[i]);
         } else {
     	    // parent process
@@ -173,11 +182,11 @@ int main() {
     int *positionCommands;
     positionCommands = malloc(1 * sizeof(int));
     positionCommands[0] = 0;
-    int flag = 0, bg;
+    int flag = 0, bg, flagCD = 0;
     int wstatus;
     signal(SIGINT, handler);
     while ((strcmp(*cmd, "quit") != 0) && (strcmp(*cmd, "exit") != 0)) {
-        bg = 0;
+        bg = bgSearch(cmd, "&");
         flag = hasPipe(cmd, &positionCommands);
         int (*fd)[2] = malloc((flag + 1) * sizeof(int[2]));
         for(int i = 0; i <= flag; i++) {
@@ -187,15 +196,17 @@ int main() {
             if (flag) {
                 dup2(fd[0][1], 1);
             }
-            close(fd[0][1]);
-            close(fd[0][0]);
-            bg = Checking(cmd, positionCommands[0], bg);
-            if (bg == 0) {
+            for (int k = 0; k <= flag; k++) {
+                close(fd[k][1]);
+                close(fd[k][0]);
+            }
+            flagCD = Checking(cmd, positionCommands[0], flagCD);
+            if (!flagCD) {
                 OutFunction(cmd, positionCommands[0]);
             }
         } else if (pid > 0) {
-            Pipe(flag, fd, cmd, positionCommands, bg);
-            if (bg == 2) {
+            Pipe(flag, fd, cmd, positionCommands, flagCD);
+            if (bg == 0) {
                 waitpid(pid, &wstatus, 0);
             }
         }
@@ -203,7 +214,7 @@ int main() {
         close(fd[flag][0]);
         if (bg == 0) {
             for (int i = 0; i <= flag; i++) {
-                wait(NULL);
+                waitpid(pid, NULL, 0);
             }
         }
         free(fd);
