@@ -103,8 +103,8 @@ int Checking(char **cmd, int x, int flagCD) {
             }
             break;
             // char *newCWD[100];
-			// getcwd(newCWD, sizeof(newCWD));
-			// setenv("PWD", newCWD, 1);
+            // getcwd(newCWD, sizeof(newCWD));
+            // setenv("PWD", newCWD, 1);
         }
         i++;
     }
@@ -127,7 +127,8 @@ int hasPipe(char **cmd, int **positionCommands) {
             free(cmd[i]);
             cmd[i] = NULL;
             count++;
-            *positionCommands = realloc(*positionCommands, (count + 1) * sizeof(int));
+            *positionCommands = realloc(*positionCommands,
+                (count + 1) * sizeof(int));
             (*positionCommands)[count] = i + 1;
         }
         i++;
@@ -136,8 +137,8 @@ int hasPipe(char **cmd, int **positionCommands) {
 }
 
 void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int flagCD) {
-	int pid2;
-    for(int i = 1; i <= x; i++) {
+    int pid2;
+    for (int i = 1; i <= x; i++) {
         if ((pid2 = fork()) == 0) {
             // sub process
             dup2(fd[i - 1][0], 0);
@@ -153,7 +154,7 @@ void Pipe(int x, int (*fd)[2], char **cmd, int *positionCommands, int flagCD) {
             Checking(cmd, positionCommands[i], flagCD);
             OutFunction(cmd, positionCommands[i]);
         } else {
-    	    // parent process
+            // parent process
             close(fd[i - 1][1]);
             close(fd[i - 1][0]);
         }
@@ -173,7 +174,7 @@ void handler(int signo) {
     puts("\nRecieved SIGINT");
     if (pid != 1) {
         kill(pid, SIGINT);
-	}
+    }
 }
 
 int main() {
@@ -189,7 +190,7 @@ int main() {
         bg = bgSearch(cmd, "&");
         flag = hasPipe(cmd, &positionCommands);
         int (*fd)[2] = malloc((flag + 1) * sizeof(int[2]));
-        for(int i = 0; i <= flag; i++) {
+        for (int i = 0; i <= flag; i++) {
             pipe(fd[i]);
         }
         if ((pid = fork()) == 0) {
