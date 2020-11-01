@@ -29,7 +29,21 @@ void freelist(char **arr, int *positionCommands, int count) {
 char *get_word(char *end) {
     char *array = NULL;
     int index = 0;
+    if (*end == '\n') {
+        return NULL;
+    }
     char c = getchar();
+    if (c == '\n') {
+        *end = c;
+        return NULL;
+    }
+    while (index == 0 && (c == ' ' || c == '\t' )) { 
+        c = getchar();
+        if (c == '\n') {
+            *end = c;
+            return NULL;
+        }
+    }
     do {
         array = realloc(array, (index + 1) * sizeof(char*));
         array[index] = c;
